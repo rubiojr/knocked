@@ -1,0 +1,10 @@
+#!/usr/bin/ruby
+begin
+  require 'knocked'
+rescue Exception
+  require "#{File.dirname(__FILE__) + '/../lib/knocked.rb'}"
+end
+
+zone = ask('zone: ')
+w = NocDns::WebApp.login
+puts w.list_domains(zone)
