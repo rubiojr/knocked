@@ -11,7 +11,7 @@ end
 
 cmd = CmdParse::CommandParser.new( true, true )
 cmd.program_name = "knocked"
-cmd.program_version = [0, 3]
+cmd.program_version = [0, 3, 1]
 cmd.options = CmdParse::OptionParserWrapper.new do |opt|
       opt.separator "Global options:"
             opt.on("--verbose", "Be verbose when outputting info") {|t| $verbose = true }
@@ -99,6 +99,34 @@ zones.set_execution_block do |args|
   puts
 end
 cmd.add_command( zones )
+
+barbarize = CmdParse::Command.new( 'barbarize', true )
+barbarize.short_desc = "Iterate over all the domains in the server (very rude command)."
+cmd.add_command( barbarize )
+
+barbarize_stats = CmdParse::Command.new( 'stats', false )
+barbarize_stats.short_desc = "Show stats of the DNS Server"
+barbarize_stats.set_execution_block do |args|
+  puts 
+  puts "Calculating stats... (This will take a lot of time)"
+  puts
+  tnow = Time.now
+  total_zones = app.available_zones.size
+  zone_count = 0
+  domains = app.barbarize do |zone|
+    zone_count += 1
+    puts "Retrieving info from zone #{zone}...".ljust(65) + "[#{zone_count}/#{total_zones}]"
+  end
+  tend = Time.now
+  puts
+  puts "Stats:"
+  puts "----------------------------------"
+  puts "#{domains.size} registered domains"
+  puts "#{total_zones} registered zones"
+  puts "Time taken: #{tend - tnow} secs"
+  puts
+end
+barbarize.add_command( barbarize_stats, true )
 
 begin
   cmd.parse

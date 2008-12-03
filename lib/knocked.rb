@@ -122,6 +122,17 @@ module NocDns
       return findings
     end
 
+    def barbarize(interval=1)
+      domains = []
+      zones = available_zones.keys
+      zones.each do |z|
+        yield z if block_given?
+        domains.concat list_zone_domains(z)
+        sleep(interval)
+      end
+      return domains
+    end
+
     private
     def list_zone_domains(zone)
       if not available_zones.has_key? zone
