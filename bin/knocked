@@ -11,12 +11,13 @@ end
 
 cmd = CmdParse::CommandParser.new( true, true )
 cmd.program_name = "knocked"
-cmd.program_version = [0, 1, 1]
+cmd.program_version = [0, 2, 1]
 cmd.options = CmdParse::OptionParserWrapper.new do |opt|
       opt.separator "Global options:"
             opt.on("--verbose", "Be verbose when outputting info") {|t| $verbose = true }
 end
 cmd.add_command( CmdParse::HelpCommand.new )
+cmd.add_command( CmdParse::VersionCommand.new )
 
 list = CmdParse::Command.new( 'list', true, false )
 list.short_desc = "list domains"
@@ -61,5 +62,5 @@ cmd.add_command( find )
 begin
   cmd.parse
 rescue Exception => e
-  puts e.message
+  puts e.message if not e.is_a? SystemExit
 end
