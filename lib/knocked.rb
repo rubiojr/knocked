@@ -19,6 +19,7 @@ rescue
 end
 
 module NocDns
+  class InvalidSettings < Exception; end
   class  WebApp
 
     attr_reader :agent
@@ -41,14 +42,14 @@ module NocDns
     def settings
       file = ENV['HOME'] + '/.knockedrc'
       if not File.file?(file)
-        raise Exception.new("Invalid settings file in #{file}")
+        raise InvalidSettings.new("Invalid settings file in #{file}")
       end
       settings = YAML.load(open(file))
       if not settings.has_key?('app_url')
-        raise Exception.new("app_url not specified in settings file: #{file}")
+        raise InvalidSettings.new("app_url not specified in settings file: #{file}")
       end
       if not settings.has_key?('username') or not settings.has_key?('password')
-        raise Exception.new("username/password not specified in settings file: #{file}")
+        raise InvalidSettings.new("username/password not specified in settings file: #{file}")
       end
       return settings
     end

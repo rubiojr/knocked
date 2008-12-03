@@ -6,5 +6,11 @@ rescue Exception
 end
 
 zone = ask('zone: ')
-w = NocDns::WebApp.login
-puts w.list_domains(zone)
+begin
+  w = NocDns::WebApp.login
+  puts w.list_domains(zone)
+rescue NocDns::InvalidSettings => e
+  puts e.message
+rescue Exception => e 
+  puts e.message
+end
