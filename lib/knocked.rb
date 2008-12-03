@@ -10,16 +10,18 @@ begin
   require 'hpricot'
   require 'mechanize'
   require 'highline/import'
-  require 'optiflag'
+  require 'cmdparse'
   require 'yaml'
 rescue
-  puts "Necesitas las gemas 'hpricot','highline' y 'mechanize' para poder ejecutar el script."
+  puts "Necesitas las gemas 'cmdparse', 'hpricot','highline' y 'mechanize' para poder ejecutar el script."
   puts "gem install hpricot mechanize highline"
   exit 1
 end
 
 module NocDns
-  class InvalidSettings < Exception; end
+  class InvalidSettingsException < Exception; end
+  class InvalidZoneException < Exception; end
+
   class  WebApp
 
     attr_reader :agent
@@ -42,14 +44,14 @@ module NocDns
     def settings
       file = ENV['HOME'] + '/.knockedrc'
       if not File.file?(file)
-        raise InvalidSettings.new("Invalid settings file in #{file}")
+        raise InvalidSettingsException.new("Invalid settings file in #{file}")
       end
       settings = YAML.load(open(file))
       if not settings.has_key?('app_url')
-        raise InvalidSettings.new("app_url not specified in settings file: #{file}")
+        raise InvalidSettingsException.new("app_url not specified in settings file: #{file}")
       end
       if not settings.has_key?('username') or not settings.has_key?('password')
-        raise InvalidSettings.new("username/password not specified in settings file: #{file}")
+        raise InvalidSettingsException.new("username/password not specified in settings file: #{file}")
       end
       return settings
     end
@@ -110,10 +112,18 @@ module NocDns
       return domains
     end
 
+    def find(exp)
+      findings = []
+      list_domains.each do |d|
+        findings << d if d =~ /#{exp}/
+      end
+      return findings
+    end
+
     private
     def list_zone_domains(zone)
       if not available_zones.has_key? zone
-        raise Exception.new("zone mapping not found for #{zone}")
+        raise InvalidZoneException.new("zone mapping not found for #{zone}")
       end
       domains = []
       params = {}
