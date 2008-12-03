@@ -21,6 +21,7 @@ end
 module NocDns
   class InvalidSettingsException < Exception; end
   class InvalidZoneException < Exception; end
+  class TooManyValuesException < Exception; end
 
   class  WebApp
 
@@ -106,15 +107,16 @@ module NocDns
       else
         zones = [zone]
       end
+      raise TooManyValuesException.new('Too many zones found. Limit your query.') if zones.size > 10
       zones.each do |z|
         domains.concat list_zone_domains(z)
       end
       return domains
     end
 
-    def find(exp)
+    def find(exp, zone=nil)
       findings = []
-      list_domains.each do |d|
+      list_domains(zone).each do |d|
         findings << d if d =~ /#{exp}/
       end
       return findings

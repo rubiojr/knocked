@@ -11,7 +11,7 @@ end
 
 cmd = CmdParse::CommandParser.new( true, true )
 cmd.program_name = "knocked"
-cmd.program_version = [0, 2, 2]
+cmd.program_version = [0, 3]
 cmd.options = CmdParse::OptionParserWrapper.new do |opt|
       opt.separator "Global options:"
             opt.on("--verbose", "Be verbose when outputting info") {|t| $verbose = true }
@@ -26,7 +26,12 @@ cmd.add_command( list )
 list_all = CmdParse::Command.new( 'all', false )
 list_all.short_desc = "list all domains from every managed zone"
 list_all.set_execution_block do |args|
-    puts app.list_domains
+    begin
+      puts app.list_domains
+    rescue NocDns::TooManyValuesException
+      puts "More than 10 zones available (#{app.available_zones.size})."
+      puts "Restrict your query to avoid excessive server load."
+    end
 end
 list.add_command( list_all, true )
 
@@ -35,8 +40,8 @@ list_zone.short_desc = "list domains from the specified managed zone"
 list_zone.set_execution_block do |args|
     args.each do |z|
       # from http://www.shauninman.com/archive/2006/05/08/validating_domain_names
-      if z !~ /^([a-z0-9]([-a-z0-9]*[a-z0-9])?\.)+((a[cdefgilmnoqrstuwxz]|aero|arpa)|(b[abdefghijmnorstvwyz]|biz)|(c[acdfghiklmnorsuvxyz]|cat|com|coop)|d[ejkmoz]|(e[ceghrstu]|edu)|f[ijkmor]|(g[abdefghilmnpqrstuwy]|gov)|h[kmnrtu]|(i[delmnoqrst]|info|int)|(j[emop]|jobs)|k[eghimnprwyz]|l[abcikrstuvy]|(m[acdghklmnopqrstuvwxyz]|mil|mobi|museum)|(n[acefgilopruz]|name|net)|(om|org)|(p[aefghklmnrstwy]|pro)|qa|r[eouw]|s[abcdeghijklmnortvyz]|(t[cdfghjklmnoprtvwz]|travel)|u[agkmsyz]|v[aceginu]|w[fs]|y[etu]|z[amw])$/
-        $stderr.puts "skipping invalid zone #{z}"
+      if z !~ /^(([a-z0-9]([-a-z0-9]*[a-z0-9])?\.)+((a[cdefgilmnoqrstuwxz]|aero|arpa)|(b[abdefghijmnorstvwyz]|biz)|(c[acdfghiklmnorsuvxyz]|cat|com|coop)|d[ejkmoz]|(e[ceghrstu]|edu)|f[ijkmor]|(g[abdefghilmnpqrstuwy]|gov)|h[kmnrtu]|(i[delmnoqrst]|info|int)|(j[emop]|jobs)|k[eghimnprwyz]|l[abcikrstuvy]|(m[acdghklmnopqrstuvwxyz]|mil|mobi|museum)|(n[acefgilopruz]|name|net)|(om|org)|(p[aefghklmnrstwy]|pro)|qa|r[eouw]|s[abcdeghijklmnortvyz]|(t[cdfghjklmnoprtvwz]|travel)|u[agkmsyz]|v[aceginu]|w[fs]|y[etu]|z[amw]))|(\d{1,3}\.){1,3}\d{1,3}$/
+        $stderr.puts "Skipping invalid zone #{z}"
       else
         begin
           puts app.list_domains(z)
@@ -48,25 +53,50 @@ list_zone.set_execution_block do |args|
 end
 list.add_command(list_zone)
 
-find = CmdParse::Command.new( 'find', false )
+find = CmdParse::Command.new( 'find', true )
 find.short_desc = "find domains matching expression"
-find.set_execution_block do |args|
-  findings = app.find args[0]
+cmd.add_command( find )
+
+find_all = CmdParse::Command.new( 'all', false )
+find_all.short_desc = "find all domains matching expression"
+find_all.set_execution_block do |args|
+  begin
+    findings = app.find args[0]
+    puts
+    puts "#{findings.size} matches found"
+    puts
+    puts findings
+  rescue NocDns::TooManyValuesException
+    puts "More than 10 zones available (#{app.available_zones.size})."
+    puts "Restrict your query to avoid excessive server load."
+  end
+end
+find.add_command( find_all, true )
+
+find_inzone = CmdParse::Command.new( 'inzone', false )
+find_inzone.short_desc = "find all domains matching expression from specified zone"
+find_inzone.set_execution_block do |args|
+  begin
+    findings = app.find(args[1], args[0])
+  rescue NocDns::TooManyValuesException
+      puts "More than 10 zones available (#{app.available_zones.size})."
+      puts "Restrict your query to avoid excessive server load."
+  end
+  puts findings
   puts
   puts "#{findings.size} matches found"
   puts
-  puts findings
 end
-cmd.add_command( find )
+find.add_command( find_inzone )
 
 zones = CmdParse::Command.new( 'zones', false )
 zones.short_desc = "List available zones"
 zones.set_execution_block do |args|
   findings = app.available_zones
+  puts findings.keys
   puts
   puts "#{findings.size} matches found"
   puts
-  puts findings.keys
 end
 cmd.add_command( zones )
 
