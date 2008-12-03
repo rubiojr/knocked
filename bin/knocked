@@ -11,7 +11,7 @@ end
 
 cmd = CmdParse::CommandParser.new( true, true )
 cmd.program_name = "knocked"
-cmd.program_version = [0, 2, 1]
+cmd.program_version = [0, 2, 2]
 cmd.options = CmdParse::OptionParserWrapper.new do |opt|
       opt.separator "Global options:"
             opt.on("--verbose", "Be verbose when outputting info") {|t| $verbose = true }
@@ -58,6 +58,17 @@ find.set_execution_block do |args|
   puts findings
 end
 cmd.add_command( find )
+
+zones = CmdParse::Command.new( 'zones', false )
+zones.short_desc = "List available zones"
+zones.set_execution_block do |args|
+  findings = app.available_zones
+  puts
+  puts "#{findings.size} matches found"
+  puts
+  puts findings.keys
+end
+cmd.add_command( zones )
 
 begin
   cmd.parse
