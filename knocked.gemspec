@@ -1,6 +1,8 @@
+require 'lib/knocked.rb'
+
 Gem::Specification.new do |s|
   s.name = %q{knocked}
-  s.version = "0.3.1"
+  s.version = Knocked::VERSION
 
   s.specification_version = 2 if s.respond_to? :specification_version=
 

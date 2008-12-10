@@ -18,10 +18,35 @@ rescue
   exit 1
 end
 
-module NocDns
+module Knocked 
+
+  VERSION = '0.4'
   class InvalidSettingsException < Exception; end
   class InvalidZoneException < Exception; end
   class TooManyValuesException < Exception; end
+
+  class PtrRecord
+    attr_accessor :id, :name, :ip, :aliases
+
+    def to_s
+      "#{@id}: #{@ip} #{@name}"
+    end
+
+    def =~(r)
+      @name =~ r or @ip =~ r
+    end
+  end
+
+  class ARecord 
+    attr_accessor :id, :name, :ip
+    def to_s
+      "#{@id}: #{@ip} #{@name}"
+    end
+    
+    def =~(r)
+      @name =~ r or @ip =~ r
+    end
+  end
 
   class  WebApp
 
@@ -100,40 +125,77 @@ module NocDns
       @zones
     end
 
-    def list_domains(zone=nil)
-      domains = []
-      if zone.nil? or zone.strip.chomp.empty?
-        zones = available_zones.keys
-      else
-        zones = [zone]
-      end
+    def list_records(zone=nil)
+      records = []
+      zones = [].concat([zone] || available_zones.keys)
       raise TooManyValuesException.new('Too many zones found. Limit your query.') if zones.size > 10
       zones.each do |z|
-        domains.concat list_zone_domains(z)
+        if z =~ /^\d{1,3}[\.0-9]*/
+          records.concat list_zone_ptrs(z)
+        else
+          records.concat list_zone_domains(z)
+        end
       end
-      return domains
+      return records 
     end
 
     def find(exp, zone=nil)
+      exp = '.*' if exp.nil? or exp.empty?
       findings = []
-      list_domains(zone).each do |d|
-        findings << d if d =~ /#{exp}/
+      zones = [].concat([zone] || available_zones.keys)
+      zones.each do |z|
+        list_records(z).each do |d|
+          findings << d if d =~ /#{Regexp.quote(exp)}/
+        end
       end
       return findings
     end
 
     def barbarize(interval=1)
-      domains = []
+      records = []
       zones = available_zones.keys
       zones.each do |z|
         yield z if block_given?
-        domains.concat list_zone_domains(z)
+        records.concat list_records(z)
         sleep(interval)
       end
-      return domains
+      return records
     end
 
     private
+    def list_zone_ptrs(zone)
+      if not available_zones.has_key? zone
+        raise InvalidZoneException.new("zone mapping not found for #{zone}")
+      end
+      ptrs = []
+      params = {}
+      id = available_zones[zone]
+      pdata = "pagina=Ptr&iddnssoa=#{id}&dominio=#{zone}&ip=si&tipoAccion=view"
+      pdata.split('&').each do |p|
+        key, val = p.split('=')
+        params[key] = val
+      end
+      response = @agent.get("#{settings['app_url']}/GestionNavegacionDns", params)
+      raise Exception.new('Invalid response from web server.') if response.code != '200'
+      doc = Hpricot(response.parser.to_s)
+      doc.search("//tr[@class='registros1']").each do |reg|
+        fields = (reg/'td')
+        ptr = PtrRecord.new
+        ptr.id = fields[0].inner_text
+        ptr.ip = fields[1].inner_text
+        ptr.name = fields[2].inner_text.gsub("?", "")
+        # aliases reverse zones?
+        # we don't need them right now
+        #ptr.aliases = fields[3].to_s.split(/<br\s?\/>/).collect do |i|
+        #  val = i.gsub(/<br\s?\/?>|&nbsp;|<\/?td>/, '').strip
+        #  val = nil if val.empty?
+        #  val
+        #end
+        ptrs << ptr
+      end
+      return ptrs
+    end
+
     def list_zone_domains(zone)
       if not available_zones.has_key? zone
         raise InvalidZoneException.new("zone mapping not found for #{zone}")
@@ -141,7 +203,7 @@ module NocDns
       domains = []
       params = {}
       id = available_zones[zone]
-      pdata = "pagina=A&iddnssoa=#{id}&dominio=#{zone}&ip=no&tipoAccion=adm"
+      pdata = "pagina=A&iddnssoa=#{id}&dominio=#{zone}&ip=no&tipoAccion=view"
       pdata.split('&').each do |p|
         key, val = p.split('=')
         params[key] = val
@@ -150,13 +212,13 @@ module NocDns
       response = @agent.get("#{settings['app_url']}/GestionNavegacionDns", params)
       raise Exception.new('Invalid response from web server.') if response.code != '200'
       doc = Hpricot(response.parser.to_s)
-      doc.search("//tr[@class='registros2']").each do |reg|
-        text = (reg/'td').inner_text.chomp.strip
-        if not text.empty?
-          d,i = text.split[1..-1]
-          fqdn = "#{d}.#{zone}".ljust(50)
-          domains << "#{fqdn} #{i}"
-        end
+      doc.search("//tr[@class='registros1']").each do |reg|
+        fields = (reg/'td')
+        a = ARecord.new
+        a.id = fields[0].inner_text.strip.chomp
+        a.name = fields[1].inner_text.gsub("?", "").strip.chomp + ".#{zone}"
+        a.ip = fields[2].inner_text.strip.chomp
+        domains << a
       end
       return domains
     end 

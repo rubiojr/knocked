@@ -6,12 +6,12 @@ rescue Exception
 end
 
 def app
-  @app ||= NocDns::WebApp.login
+  @app ||= Knocked::WebApp.login
 end
 
 cmd = CmdParse::CommandParser.new( true, true )
 cmd.program_name = "knocked"
-cmd.program_version = [0, 3, 1]
+cmd.program_version = Knocked::VERSION.split('.')
 cmd.options = CmdParse::OptionParserWrapper.new do |opt|
       opt.separator "Global options:"
             opt.on("--verbose", "Be verbose when outputting info") {|t| $verbose = true }
@@ -27,8 +27,8 @@ list_all = CmdParse::Command.new( 'all', false )
 list_all.short_desc = "list all domains from every managed zone"
 list_all.set_execution_block do |args|
     begin
-      puts app.list_domains
-    rescue NocDns::TooManyValuesException
+      puts app.list_records
+    rescue Knocked::TooManyValuesException
       puts "More than 10 zones available (#{app.available_zones.size})."
       puts "Restrict your query to avoid excessive server load."
     end
@@ -44,8 +44,8 @@ list_zone.set_execution_block do |args|
         $stderr.puts "Skipping invalid zone #{z}"
       else
         begin
-          puts app.list_domains(z)
-        rescue NocDns::InvalidZoneException
+          puts app.list_records(z)
+        rescue Knocked::InvalidZoneException
           puts "Zone #{z} not under your control. Can't be listed."
         end
       end
@@ -66,7 +66,7 @@ find_all.set_execution_block do |args|
     puts "#{findings.size} matches found"
     puts
     puts findings
-  rescue NocDns::TooManyValuesException
+  rescue Knocked::TooManyValuesException
     puts "More than 10 zones available (#{app.available_zones.size})."
     puts "Restrict your query to avoid excessive server load."
   end
@@ -78,7 +78,7 @@ find_inzone.short_desc = "find all domains matching expression from specified zo
 find_inzone.set_execution_block do |args|
   begin
     findings = app.find(args[1], args[0])
-  rescue NocDns::TooManyValuesException
+  rescue Knocked::TooManyValuesException
       puts "More than 10 zones available (#{app.available_zones.size})."
       puts "Restrict your query to avoid excessive server load."
   end
